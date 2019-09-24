@@ -20,6 +20,8 @@ package com.github.mc1arke.sonarqube.plugin;
 
 import com.github.mc1arke.sonarqube.plugin.ce.CommunityBranchEditionProvider;
 import com.github.mc1arke.sonarqube.plugin.ce.CommunityReportAnalysisComponentProvider;
+import com.github.mc1arke.sonarqube.plugin.ce.pullrequest.gerrit.GerritConstants;
+import com.github.mc1arke.sonarqube.plugin.ce.pullrequest.gerrit.PropertyKey;
 import com.github.mc1arke.sonarqube.plugin.scanner.CommunityBranchConfigurationLoader;
 import com.github.mc1arke.sonarqube.plugin.scanner.CommunityBranchParamsValidator;
 import com.github.mc1arke.sonarqube.plugin.scanner.CommunityProjectBranchesLoader;
@@ -30,6 +32,7 @@ import org.sonar.api.CoreProperties;
 import org.sonar.api.Plugin;
 import org.sonar.api.PropertyType;
 import org.sonar.api.SonarQubeSide;
+import org.sonar.api.batch.rule.Severity;
 import org.sonar.api.config.PropertyDefinition;
 import org.sonar.api.resources.Qualifiers;
 import org.sonar.core.config.PurgeConstants;
@@ -41,6 +44,7 @@ public class CommunityBranchPlugin implements Plugin {
 
     private static final String PULL_REQUEST_CATEGORY_LABEL = "Pull Request";
     private static final String GITHUB_INTEGRATION_SUBCATEGORY_LABEL = "Integration With Github";
+    private static final String GERRIT_INTEGRATION_SUBCATEGORY_LABEL = "Integration With Gerrit";
 
     @Override
     public void define(Context context) {
@@ -72,7 +76,7 @@ public class CommunityBranchPlugin implements Plugin {
                 PropertyDefinition.builder("sonar.pullrequest.provider").subCategory(PULL_REQUEST_CATEGORY_LABEL)
                         .subCategory("General")
                         .onlyOnQualifiers(Qualifiers.PROJECT).name("Provider").type(PropertyType.SINGLE_SELECT_LIST)
-                        .options("Github").build(),
+                        .options("Gerrit", "Github").build(),
 
                 PropertyDefinition.builder("sonar.alm.github.app.privateKey.secured")
                         .subCategory(PULL_REQUEST_CATEGORY_LABEL).subCategory(GITHUB_INTEGRATION_SUBCATEGORY_LABEL)
@@ -100,6 +104,92 @@ public class CommunityBranchPlugin implements Plugin {
                         .type(PropertyType.STRING).defaultValue("https://api.github.com").build()
 
                              );
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_SCHEME)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_SERVER)
+                .type(PropertyType.SINGLE_SELECT_LIST)
+                .options(GerritConstants.SCHEME_HTTP, GerritConstants.SCHEME_HTTPS, GerritConstants.SCHEME_SSH)
+                .defaultValue(GerritConstants.SCHEME_HTTP).build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_HOST)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_SERVER)
+                .build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_PORT)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_SERVER)
+                .type(PropertyType.INTEGER).defaultValue("80").build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_USERNAME)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_SERVER)
+                .build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_PASSWORD)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_SERVER)
+                .type(PropertyType.PASSWORD).build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_SSH_KEY_PATH)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_SERVER)
+                .type(PropertyType.STRING).build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_STRICT_HOSTKEY)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_SERVER)
+                .type(PropertyType.BOOLEAN).defaultValue(GerritConstants.GERRIT_STRICT_HOSTKEY_DEFAULT)
+                .build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_HTTP_AUTH_SCHEME)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_SERVER)
+                .type(PropertyType.SINGLE_SELECT_LIST).options(GerritConstants.AUTH_BASIC, GerritConstants.AUTH_DIGEST)
+                .defaultValue(GerritConstants.AUTH_DIGEST).build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_BASE_PATH)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_SERVER)
+                .defaultValue("/").build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_LABEL)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_REVIEW)
+                .defaultValue("Code-Review").build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_MESSAGE)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_REVIEW)
+                .defaultValue("Sonar review at ${sonar.host.url}").build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_COMMENT_NEW_ISSUES_ONLY)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_REVIEW)
+                .type(PropertyType.BOOLEAN).defaultValue(GerritConstants.GERRIT_COMMENT_NEW_ISSUES_ONLY)
+                .onQualifiers(Qualifiers.PROJECT).build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_THRESHOLD)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_REVIEW)
+                .type(PropertyType.SINGLE_SELECT_LIST)
+                .options(Severity.INFO.toString(), Severity.MINOR.toString(), Severity.MAJOR.toString(),
+                        Severity.CRITICAL.toString(), Severity.BLOCKER.toString())
+                .defaultValue(Severity.INFO.toString()).onQualifiers(Qualifiers.PROJECT)
+                .build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_VOTE_NO_ISSUE)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_REVIEW)
+                .type(PropertyType.SINGLE_SELECT_LIST).options("+1", "+2")
+                .defaultValue(GerritConstants.GERRIT_VOTE_NO_ISSUE_DEFAULT)
+                .onQualifiers(Qualifiers.PROJECT).build();
+
+        PropertyDefinition
+                .builder(PropertyKey.GERRIT_VOTE_ISSUE_BELOW_THRESHOLD).category(GerritConstants.GERRIT_CATEGORY)
+                .subCategory(GerritConstants.GERRIT_SUBCATEGORY_REVIEW).type(PropertyType.SINGLE_SELECT_LIST)
+                .options("-2", "-1", "0", "+1", "+2")
+                .defaultValue(GerritConstants.GERRIT_VOTE_ISSUE_BELOW_THRESHOLD_DEFAULT)
+                .onQualifiers(Qualifiers.PROJECT).build();
+
+        PropertyDefinition
+                .builder(PropertyKey.GERRIT_VOTE_ISSUE_ABOVE_THRESHOLD).category(GerritConstants.GERRIT_CATEGORY)
+                .subCategory(GerritConstants.GERRIT_SUBCATEGORY_REVIEW).type(PropertyType.SINGLE_SELECT_LIST)
+                .options("-2", "-1", "0").defaultValue(GerritConstants.GERRIT_VOTE_ISSUE_ABOVE_THRESHOLD_DEFAULT)
+                .onQualifiers(Qualifiers.PROJECT).build();
+
+        PropertyDefinition.builder(PropertyKey.GERRIT_ISSUE_COMMENT)
+                .category(GerritConstants.GERRIT_CATEGORY).subCategory(GerritConstants.GERRIT_SUBCATEGORY_REVIEW)
+                .defaultValue(
+                        "[${issue.isNew}] New: ${issue.ruleKey} Severity: ${issue.severity}, Message: ${issue.message}")
+                .build();
 
     }
 

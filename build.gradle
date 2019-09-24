@@ -23,6 +23,7 @@ plugins {
     id('info.solidsoft.pitest') version('1.4.0')
     id('com.github.johnrengelman.shadow') version('5.1.0')
     id('net.researchgate.release') version('2.6.0')
+    
 }
 
 group 'com.github.mc1arke.sonarqube.plugin'
@@ -64,6 +65,8 @@ dependencies {
     zip "sonarqube:sonarqube:${sonarqubeVersion}@zip"
     compile 'org.bouncycastle:bcpkix-jdk15on:1.62'
     compile 'io.aexp.nodes.graphql:nodes:0.5.0'
+    compile group: 'fi.jpalomaki.ssh', name: 'simple-ssh-client', version: '1.0.2'
+
 }
 
 
